@@ -1,0 +1,68 @@
+version: '3.4'
+
+services:
+  cacti-old:
+    build:
+      context: ./
+      target: cacti-old
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: cacti
+      MYSQL_USER: root
+      TZ: Asia/Tokyo
+    ports:
+      - "8080:80"
+    depends_on:
+      - mysql
+    volumes:
+      - ./cacti-old/:/var/www/cacti/
+    command:
+      - sh
+      - -c
+      - |
+        set -eu
+        cat <<'EOS'> /var/www/cacti/include/config.php
+        <?php
+        $$database_type = 'mysql';
+        $$database_default = getenv('MYSQL_DATABASE');
+        $$database_hostname = getenv('MYSQL_HOST');
+        $$database_username = getenv('MYSQL_USER');
+        $$database_password = getenv('MYSQL_PASSWORD');
+        $$database_port = getenv('MYSQL_PORT');
+        $$database_ssl = false;
+        EOS
+        exec /usr/sbin/httpd -DFOREGROUND
+
+  cacti-new:
+    build:
+      context: ./
+      target: cacti-new
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: cacti
+      MYSQL_USER: root
+      TZ: Asia/Tokyo
+    ports:
+      - "8080:80"
+    depends_on:
+      - mysql
+    volumes:
+      - ./cacti-old/rra/:/var/lib/cacti/rra/
+
+  mysql:
+    image: mysql:5.7
+    command:
+      - --character-set-server=utf8
+      - --sql-mode=
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: 1
+      MYSQL_DATABASE: cacti
+      TZ: Asia/Tokyo
+    volumes:
+      - ./cacti-old/dump.sql:/docker-entrypoint-initdb.d/dump.sql:ro
+      - mysql:/var/lib/mysql
+
+volumes:
+  mysql:
